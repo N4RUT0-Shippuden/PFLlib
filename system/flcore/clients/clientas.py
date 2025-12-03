@@ -177,9 +177,12 @@ class clientAS(Client):
                 y_batch = y_batch.to(self.device)
                 global_proto_batch = model.base(x_batch)
                 loss = 0
+                total_samples = len(y_batch)
                 for label in y_batch.unique():
                     if mean_prototypes[label.item()] is not None:
-                        loss += alignment_loss_fn(global_proto_batch[y_batch == label], mean_prototypes[label.item()])
+                        class_samples = (y_batch == label).sum()
+                        class_loss = alignment_loss_fn(global_proto_batch[y_batch == label], mean_prototypes[label.item()])
+                        loss += class_loss * (class_samples / total_samples)
                 alignment_optimizer.zero_grad()
                 loss.backward()
                 alignment_optimizer.step()
