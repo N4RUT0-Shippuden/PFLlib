@@ -431,6 +431,9 @@ if __name__ == "__main__":
                         help="Set this for text tasks. 80 for Shakespeare. 32000 for AG_News and SogouNews.")
     parser.add_argument('-ml', "--max_len", type=int, default=200)
     parser.add_argument('-fs', "--few_shot", type=int, default=0)
+    parser.add_argument('-dm', "--distance_metric", type=str, default="l2",  # 距离度量参数
+                        choices=["l2", "l1", "cosine", "kl", "emd"],  # 支持的度量
+                        help="Distance metric for FedAvg vs SGD plots")  # 命令行说明
     # practical
     parser.add_argument('-cdr', "--client_drop_rate", type=float, default=0.0,
                         help="Rate for clients that train but drop out")
