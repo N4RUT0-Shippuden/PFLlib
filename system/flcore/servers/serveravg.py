@@ -76,6 +76,20 @@ class FedAvg(Server):
             if name in state_b:  # 只比较同名层
                 layer_names.append(name)  # 保存层名
                 layer_distances.append(self._tensor_distance(tensor, state_b[name]))  # 层距离
+
+        def insert_placeholder(anchor, placeholder):  # 插入无参层占位
+            if placeholder in layer_names:  # 已存在则跳过
+                return  # 直接返回
+            for idx, name in enumerate(layer_names):  # 查找插入位置
+                if name.startswith(anchor):  # 找到锚点
+                    layer_names.insert(idx + 1, placeholder)  # 插入层名
+                    layer_distances.insert(idx + 1, 0.0)  # 占位距离为0
+                    return  # 完成插入
+
+        insert_placeholder("conv1.0", "conv1.1")  # ReLU层占位
+        insert_placeholder("conv2.0", "conv2.1")  # ReLU层占位
+        insert_placeholder("fc1.0", "fc1.1")  # ReLU层占位
+
         return layer_names, layer_distances  # 返回数据
 
     def _build_sgd_loader(self, sgd_client_id=0):  # 构建SGD数据
