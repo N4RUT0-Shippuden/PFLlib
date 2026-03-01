@@ -5,6 +5,7 @@ import numpy as np  # 数值处理
 import torch  # 张量运算
 import torch.nn.functional as F  # KL与余弦
 import matplotlib.pyplot as plt  # 绘图
+from matplotlib.ticker import FormatStrFormatter  # 坐标轴格式
 from torch.utils.data import DataLoader  # 数据加载器
 from flcore.clients.clientavg import clientAVG
 from flcore.servers.serverbase import Server
@@ -171,7 +172,11 @@ class FedAvg(Server):
         layer_names, layer_distances = self._compute_layer_distances(self.global_model, sgd_model)  # 柱状图数据
         if len(layer_names) > 0:
             plt.figure(figsize=(max(10, len(layer_names) * 0.4), 6))  # 画布尺寸
-            plt.bar(range(len(layer_names)), layer_distances)  # 画柱状图
+            bars = plt.bar(range(len(layer_names)), layer_distances)  # 画柱状图
+            for bar, val in zip(bars, layer_distances):  # 在柱子上标数值
+                height = bar.get_height()
+                plt.text(bar.get_x() + bar.get_width() / 2, height, f"{val:.3f}",
+                         ha="center", va="bottom", fontsize=8, rotation=90)
             plt.xticks(range(len(layer_names)), layer_names, rotation=90)  # 层名
             plt.ylabel(f"{self.distance_metric.upper()} Distance")  # y轴标签
             plt.tight_layout()  # 紧凑布局
@@ -187,6 +192,8 @@ class FedAvg(Server):
                 plt.xticks(range(self.global_rounds + 1))  # 显示完整轮次
             plt.xlabel("Round")  # x轴标签
             plt.ylabel(f"Client-SGD {self.distance_metric.upper()} Distance")  # y轴标签
+            ax = plt.gca()  # 获取当前坐标轴
+            ax.yaxis.set_major_formatter(FormatStrFormatter('%.3f'))  # y轴精度0.001
             plt.legend(bbox_to_anchor=(1.02, 1), loc="upper left", borderaxespad=0, fontsize=8)  # 图例位置
             plt.tight_layout()  # 紧凑布局
             plt.savefig(os.path.join(plot_dir, f"fedavg_client_vs_sgd_round_distance_{self.distance_metric}.png"))  # 保存折线图
