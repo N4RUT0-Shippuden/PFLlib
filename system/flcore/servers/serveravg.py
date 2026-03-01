@@ -176,7 +176,7 @@ class FedAvg(Server):
             for bar, val in zip(bars, layer_distances):  # 在柱子上标数值
                 height = bar.get_height()
                 plt.text(bar.get_x() + bar.get_width() / 2, height, f"{val:.3f}",
-                         ha="center", va="bottom", fontsize=8, rotation=90)
+                         ha="center", va="bottom", fontsize=8, rotation=0)
             plt.xticks(range(len(layer_names)), layer_names, rotation=90)  # 层名
             plt.ylabel(f"{self.distance_metric.upper()} Distance")  # y轴标签
             plt.tight_layout()  # 紧凑布局
