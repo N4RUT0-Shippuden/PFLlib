@@ -72,23 +72,10 @@ class FedAvg(Server):
         state_b = model_b.state_dict()  # SGD权重
         layer_names = []  # 层名列表
         layer_distances = []  # 距离列表
-        for name, tensor in state_a.items():  # 按名对齐
+        for name, tensor in state_a.items():  # 按名对齐（仅带参数层）
             if name in state_b:  # 只比较同名层
-                layer_names.append(name)  # 保存层名
+                layer_names.append(name)  # 保存参数层名
                 layer_distances.append(self._tensor_distance(tensor, state_b[name]))  # 层距离
-
-        def insert_placeholder(anchor, placeholder):  # 插入无参层占位
-            if placeholder in layer_names:  # 已存在则跳过
-                return  # 直接返回
-            for idx, name in enumerate(layer_names):  # 查找插入位置
-                if name.startswith(anchor):  # 找到锚点
-                    layer_names.insert(idx + 1, placeholder)  # 插入层名
-                    layer_distances.insert(idx + 1, 0.0)  # 占位距离为0
-                    return  # 完成插入
-
-        insert_placeholder("conv1.0", "conv1.1")  # ReLU层占位
-        insert_placeholder("conv2.0", "conv2.1")  # ReLU层占位
-        insert_placeholder("fc1.0", "fc1.1")  # ReLU层占位
 
         return layer_names, layer_distances  # 返回数据
 
@@ -114,6 +101,7 @@ class FedAvg(Server):
         sgd_loss = torch.nn.CrossEntropyLoss()  # 交叉熵
         sgd_loader = self._build_sgd_loader()  # SGD数据
         round_distances = {}  # 客户端距离序列
+        round_indices = {}  # 客户端对应的全局轮次索引
 
         for i in range(self.global_rounds+1):
             s_t = time.time()
@@ -142,11 +130,13 @@ class FedAvg(Server):
                     loss.backward()  # 反向传播
                     sgd_optimizer.step()  # 参数更新
 
-            for client in self.selected_clients:  # 记录客户端距离
-                dist = self._compute_model_distance(client.model, sgd_model)  # 客户端vsSGD
+            for client in self.selected_clients:  # 遍历本轮客户端
+                dist = self._compute_model_distance(client.model, sgd_model)  # 计算距离
                 if client.id not in round_distances:  # 初始化序列
-                    round_distances[client.id] = []  # 创建列表
+                    round_distances[client.id] = []  # 初始化距离列表
+                    round_indices[client.id] = []  # 初始化轮次列表
                 round_distances[client.id].append(dist)  # 追加距离
+                round_indices[client.id].append(i)  # 记录全局轮次
 
             # threads = [Thread(target=client.train)
             #            for client in self.selected_clients]
@@ -191,10 +181,13 @@ class FedAvg(Server):
         if len(round_distances) > 0:
             plt.figure(figsize=(8, 5))  # 画布尺寸
             for cid, distances in round_distances.items():  # 每客户端一条线
-                plt.plot(range(len(distances)), distances, label=f"client_{cid}")  # 绘制折线
+                x_vals = round_indices.get(cid, range(len(distances)))  # 使用真实轮次
+                plt.plot(x_vals, distances, label=f"client_{cid}")  # 绘制折线
+            if self.global_rounds <= 50:  # 轮数较少时显示所有刻度
+                plt.xticks(range(self.global_rounds + 1))  # 显示完整轮次
             plt.xlabel("Round")  # x轴标签
             plt.ylabel(f"Client-SGD {self.distance_metric.upper()} Distance")  # y轴标签
-            plt.legend(ncol=2, fontsize=8)  # 图例
+            plt.legend(bbox_to_anchor=(1.02, 1), loc="upper left", borderaxespad=0, fontsize=8)  # 图例位置
             plt.tight_layout()  # 紧凑布局
             plt.savefig(os.path.join(plot_dir, f"fedavg_client_vs_sgd_round_distance_{self.distance_metric}.png"))  # 保存折线图
             plt.close()  # 关闭图像
